@@ -4,6 +4,9 @@ import { ConfigProvider } from "antd";
 import thTH from "antd/locale/th_TH";
 import "./globals.css";
 
+// Force dynamic rendering — all pages need Supabase auth (no static prerender)
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "LiveSoul Affiliate — Shopee",
   description: "Shopee Affiliate Dashboard & Tools powered by LiveSoul",

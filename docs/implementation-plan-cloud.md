@@ -11,14 +11,14 @@
 
 ### ทำไมถึงเลือก Supabase
 
-| เหตุผล | รายละเอียด |
-|--------|-----------|
-| **Auth ครบในตัว** | Email/password, Magic Link, Google OAuth, Line OAuth (ผ่าน PKCE) ไม่ต้องเขียน auth logic เอง |
-| **PostgreSQL** | เหมาะกับข้อมูล conversion report ที่เป็น relational, รองรับ query complex ได้ |
-| **Row Level Security** | ข้อมูลแต่ละ user ถูก isolate โดย DB policy ไม่ต้องเขียน middleware เองทุกจุด |
-| **Next.js SSR รองรับดี** | มี official `@supabase/ssr` package สำหรับ App Router โดยเฉพาะ |
-| **Free tier ใช้ได้จริง** | 500MB DB, 5GB transfer, 50,000 MAU ฟรี |
-| **Realtime built-in** | ถ้าอยากทำ live dashboard ในอนาคตทำได้เลย |
+| เหตุผล                   | รายละเอียด                                                                                   |
+| ------------------------ | -------------------------------------------------------------------------------------------- |
+| **Auth ครบในตัว**        | Email/password, Magic Link, Google OAuth, Line OAuth (ผ่าน PKCE) ไม่ต้องเขียน auth logic เอง |
+| **PostgreSQL**           | เหมาะกับข้อมูล conversion report ที่เป็น relational, รองรับ query complex ได้                |
+| **Row Level Security**   | ข้อมูลแต่ละ user ถูก isolate โดย DB policy ไม่ต้องเขียน middleware เองทุกจุด                 |
+| **Next.js SSR รองรับดี** | มี official `@supabase/ssr` package สำหรับ App Router โดยเฉพาะ                               |
+| **Free tier ใช้ได้จริง** | 500MB DB, 5GB transfer, 50,000 MAU ฟรี                                                       |
+| **Realtime built-in**    | ถ้าอยากทำ live dashboard ในอนาคตทำได้เลย                                                     |
 
 ### Alternative ที่ควรรู้จัก
 
@@ -122,6 +122,7 @@ create policy "users see own logs"         on sync_logs           for all using 
 ### Phase 1 — Foundation (สัปดาห์ที่ 1-2)
 
 #### 1.1 User Authentication
+
 - [ ] Email + password sign-up / login
 - [ ] Google OAuth ("Continue with Google") — ลด friction มากที่สุด
 - [ ] Magic Link login ทาง email (ไม่ต้องจำ password)
@@ -129,6 +130,7 @@ create policy "users see own logs"         on sync_logs           for all using 
 - [ ] Auto-redirect ถ้ายัง login อยู่
 
 #### 1.2 Cloud Credentials Storage
+
 - [ ] เมื่อ validate Shopee credentials สำเร็จ → บันทึกลง Supabase แทน localStorage
 - [ ] รองรับหลาย Shopee account ต่อ 1 user (labelled)
 - [ ] Fallback อ่านจาก localStorage ถ้าไม่มี network (offline ใช้งานได้)
@@ -136,12 +138,14 @@ create policy "users see own logs"         on sync_logs           for all using 
 ### Phase 2 — Data Sync (สัปดาห์ที่ 3-4)
 
 #### 2.1 Conversion Cache & Sync
+
 - [ ] Sync conversion data จาก Shopee → Supabase ทุกครั้งที่เปิดหน้า dashboard
 - [ ] เก็บ history ย้อนหลังได้ไม่จำกัด (ปัจจุบัน Shopee API ให้แค่ 30 วัน)
 - [ ] Incremental sync — ดึงเฉพาะข้อมูลใหม่ตั้งแต่ sync ล่าสุด
 - [ ] Manual "Refresh" button ยังทำงานได้เหมือนเดิม
 
-#### 2.2 Scheduled Auto-Sync  *(Vercel Cron Jobs)*
+#### 2.2 Scheduled Auto-Sync _(Vercel Cron Jobs)_
+
 - [ ] Auto-sync ทุก 6 ชั่วโมง (Vercel Cron — ฟรี tier ได้)
 - [ ] Notify ทาง email เมื่อมี confirmed conversion ใหม่
 - [ ] `/api/cron/sync` endpoint สำหรับ Vercel Cron trigger
@@ -149,22 +153,26 @@ create policy "users see own logs"         on sync_logs           for all using 
 ### Phase 3 — UX & Analytics (สัปดาห์ที่ 5-6)
 
 #### 3.1 Enhanced Dashboard
+
 - [ ] กราฟ commission รายวัน / รายสัปดาห์ / รายเดือน (Recharts หรือ antd Charts)
 - [ ] ยอดรวม commission แบบ real-time จาก DB (ไม่ต้องเรียก Shopee API ทุกครั้ง)
 - [ ] Filter ข้าม date range ได้ไม่จำกัด (ดึงจาก cache)
 - [ ] Conversion rate: pending → confirmed
 
 #### 3.2 Export & Share
+
 - [ ] Export CSV / Excel รายงาน conversion
 - [ ] Shareable report link (read-only view ที่มี expiry)
 
 #### 3.3 Notifications
+
 - [ ] Line Notify หรือ Email alert เมื่อ commission เกิน threshold
 - [ ] Weekly summary email
 
 ### Phase 4 — Multi-platform (อนาคต)
 
 #### 4.1 Mobile App (มี `apps/mobile/` อยู่แล้ว)
+
 - [ ] React Native (Expo) share Supabase client กับ web
 - [ ] Push notification ผ่าน Expo Notifications
 
@@ -193,18 +201,20 @@ apps/web/src/lib/supabase/
 // apps/web/src/middleware.ts  (เพิ่ม Supabase session refresh)
 import { updateSession } from "@/lib/supabase/middleware";
 export const middleware = updateSession;
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+};
 ```
 
 ---
 
 ## Cost Estimate (Production)
 
-| บริการ | Free Tier | โดยประมาณถ้า scale |
-|--------|-----------|-------------------|
-| Supabase | 500MB DB, 50k MAU | $25/mo (Pro) |
-| Vercel | Cron 2/day | $20/mo (Pro) ถ้าต้องการ cron บ่อย |
-| **รวม** | **$0** | **~$45/mo** |
+| บริการ   | Free Tier         | โดยประมาณถ้า scale                |
+| -------- | ----------------- | --------------------------------- |
+| Supabase | 500MB DB, 50k MAU | $25/mo (Pro)                      |
+| Vercel   | Cron 2/day        | $20/mo (Pro) ถ้าต้องการ cron บ่อย |
+| **รวม**  | **$0**            | **~$45/mo**                       |
 
 ---
 
@@ -217,4 +227,4 @@ export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)
 
 ---
 
-*สร้างเมื่อ: มีนาคม 2569 | Stack: Next.js 15 + Supabase + Turborepo monorepo*
+_สร้างเมื่อ: มีนาคม 2569 | Stack: Next.js 15 + Supabase + Turborepo monorepo_

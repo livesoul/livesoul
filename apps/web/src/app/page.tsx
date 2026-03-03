@@ -42,6 +42,7 @@ import {
   credentialHeaders,
   type Credentials,
 } from "@/lib/credentials";
+import { createClient } from "@/lib/supabase/client";
 import type {
   ConversionNode,
   ConversionOrder,
@@ -260,37 +261,53 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ApiResponse | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   // Initial range: last 7 days in Asia/Bangkok timezone, ending yesterday (today has no data yet)
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
     bkk().subtract(7, "day").startOf("day"),
     bkk().subtract(1, "day").endOf("day"),
   ]);
 
-  // Auth guard — redirect to /login if no credentials in localStorage
-  useEffect(() => {
-    const stored = loadCredentials();
-    if (!stored) {
-      router.replace("/login");
-    } else {
-      setCreds(stored);
-    }
-  }, [router]);
+  const supabase = createClient();
 
-  function handleLogout() {
+  // Auth guard — redirect to /login if not authenticated
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace("/login");
+      } else {
+        // Load credentials from localStorage cache for backward compat
+        const stored = loadCredentials();
+        if (stored) setCreds(stored);
+        setAuthReady(true);
+      }
+    })();
+  }, [router, supabase]);
+
+  async function handleLogout() {
     clearCredentials();
+    await supabase.auth.signOut();
     router.replace("/login");
   }
 
   const fetchData = useCallback(async () => {
-    if (!creds) return;
+    if (!authReady) return;
     setLoading(true);
     setError(null);
     try {
       const start = bkk(dateRange[0]).startOf("day").unix();
       const end = bkk(dateRange[1]).endOf("day").unix();
+
+      const headers: HeadersInit = {};
+      // Include header-based creds if available (backward compat / offline cache)
+      if (creds) {
+        Object.assign(headers, credentialHeaders(creds));
+      }
+
       const res = await fetch(
         `/api/conversions?purchaseTimeStart=${start}&purchaseTimeEnd=${end}&limit=500`,
-        { headers: credentialHeaders(creds) },
+        { headers },
       );
       const json: ApiResponse = await res.json();
       if (json.error) {
@@ -303,14 +320,14 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [dateRange, creds]);
+  }, [dateRange, creds, authReady]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Don't render until credentials are confirmed
-  if (!creds) return null;
+  // Don't render until auth is confirmed
+  if (!authReady) return null;
 
   // Predefined presets — all ends capped at yesterday (today has no data yet)
   const yesterday = bkk().subtract(1, "day");
