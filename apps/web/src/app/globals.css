@@ -1,0 +1,33 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Thai",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none;
+}
+
+/* Improve tap target on mobile */
+button,
+[role="button"] {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* Smooth horizontal scroll for tables on mobile */
+.ant-table-wrapper {
+  -webkit-overflow-scrolling: touch;
+}

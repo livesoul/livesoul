@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+dist
+.turbo
+*.tsbuildinfo
+
+# Environment files — never commit secrets
+.env
+.env.*
+!.env.example
+
+# Screenshots
+screenshorts/

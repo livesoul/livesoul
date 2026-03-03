@@ -1,0 +1,13 @@
+{
+  "name": "@livesoul/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Mobile app not started yet. Use apps/web for now.'",
+    "build": "echo 'Mobile app not started yet.'",
+    "lint": "echo 'Mobile app not started yet.'"
+  },
+  "dependencies": {
+    "@livesoul/shopee-api": "workspace:*"
+  }
+}
