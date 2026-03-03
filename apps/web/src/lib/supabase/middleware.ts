@@ -57,12 +57,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from /login
-  if (user && isLoginPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
+  // Authenticated users on /login: let the login page handle the logic
+  // (it checks for existing credentials and redirects or shows setup form)
 
   return supabaseResponse;
 }

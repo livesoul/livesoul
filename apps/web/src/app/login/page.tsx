@@ -58,12 +58,15 @@ function LoginContent() {
   const [testing, setTesting] = useState(false);
   const [credError, setCredError] = useState<string | null>(null);
   const [credSuccess, setCredSuccess] = useState(false);
-  const isAddingAccount = searchParams.get("add") === "1";
+  const isAddingAccount =
+    searchParams.get("add") === "1" || searchParams.get("setup") === "1";
 
   // Check if user is already authenticated → show Shopee step or redirect
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         if (isAddingAccount) {
           // User wants to add another account — go straight to Shopee step

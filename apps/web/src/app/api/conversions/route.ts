@@ -59,7 +59,10 @@ export async function GET(request: Request) {
       );
     }
 
-    const client = new ShopeeAffiliateClient({ appId: cred.app_id, secret: cred.secret });
+    const client = new ShopeeAffiliateClient({
+      appId: cred.app_id,
+      secret: cred.secret,
+    });
     const allNodes = await client.getAllConversionReports({
       purchaseTimeStart,
       purchaseTimeEnd,

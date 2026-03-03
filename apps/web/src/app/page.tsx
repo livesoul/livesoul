@@ -295,7 +295,7 @@ export default function HomePage() {
       const creds = await loadCredentialsCloud();
       if (creds.length === 0) {
         // No credentials yet → send to login step 2
-        router.replace("/login");
+        router.replace("/login?setup=1");
         return;
       }
       setCredentials(creds);
@@ -492,9 +492,7 @@ export default function HomePage() {
                 title={item.label}
                 description={`App ID: ${item.app_id.slice(0, 8)}… · ${bkk(item.created_at).format("DD MMM YYYY")}`}
               />
-              {item.id === activeCredId && (
-                <Tag color="green">ใช้งานอยู่</Tag>
-              )}
+              {item.id === activeCredId && <Tag color="green">ใช้งานอยู่</Tag>}
             </List.Item>
           )}
         />
