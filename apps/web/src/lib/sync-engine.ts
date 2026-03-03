@@ -14,7 +14,10 @@
 
 import { ShopeeAffiliateClient } from "@livesoul/shopee-api";
 import type { ConversionReport } from "@livesoul/shopee-api";
-import { createClient as createSupabaseAdmin, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient as createSupabaseAdmin,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 import { createHash } from "crypto";
 import { bkk, bkkDayBoundary } from "./tz";
 
@@ -79,7 +82,9 @@ function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+    );
   }
   return createSupabaseAdmin(url, serviceKey);
 }
@@ -200,7 +205,11 @@ async function syncDay(
   client: ShopeeAffiliateClient,
   cred: CredentialRecord,
   dayOffset: number,
-): Promise<{ newRecords: number; updatedRecords: number; statusChanges: number }> {
+): Promise<{
+  newRecords: number;
+  updatedRecords: number;
+  statusChanges: number;
+}> {
   const boundary = bkkDayBoundary(dayOffset);
 
   // Fetch from Shopee API
@@ -223,7 +232,11 @@ async function upsertConversions(
   supabase: AdminClient,
   cred: CredentialRecord,
   conversions: ConversionReport[],
-): Promise<{ newRecords: number; updatedRecords: number; statusChanges: number }> {
+): Promise<{
+  newRecords: number;
+  updatedRecords: number;
+  statusChanges: number;
+}> {
   let newRecords = 0;
   let updatedRecords = 0;
   let statusChanges = 0;
@@ -263,7 +276,10 @@ async function upsertConversions(
       // New record — insert
       const { data: inserted } = await supabase
         .from("conversions")
-        .upsert({ ...row, content_hash: newHash }, { onConflict: "credential_id,conversion_id,order_id,item_id" })
+        .upsert(
+          { ...row, content_hash: newHash },
+          { onConflict: "credential_id,conversion_id,order_id,item_id" },
+        )
         .select("id")
         .single();
 
@@ -509,10 +525,18 @@ async function buildDailySummary(
     totalCommission += itemComm;
 
     switch (row.order_status) {
-      case "PENDING": pending++; break;
-      case "COMPLETED": completed++; break;
-      case "CANCELLED": cancelled++; break;
-      case "UNPAID": unpaid++; break;
+      case "PENDING":
+        pending++;
+        break;
+      case "COMPLETED":
+        completed++;
+        break;
+      case "CANCELLED":
+        cancelled++;
+        break;
+      case "UNPAID":
+        unpaid++;
+        break;
     }
 
     if (row.item_name) {

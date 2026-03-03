@@ -40,12 +40,17 @@ export async function POST() {
 
     if (!cred) {
       return NextResponse.json(
-        { error: "No Shopee credentials found. Please set up credentials first." },
+        {
+          error:
+            "No Shopee credentials found. Please set up credentials first.",
+        },
         { status: 400 },
       );
     }
 
-    console.log(`[manual-sync] User ${user.id} triggered sync for credential ${cred.id}`);
+    console.log(
+      `[manual-sync] User ${user.id} triggered sync for credential ${cred.id}`,
+    );
     const startTime = Date.now();
 
     const result = await runManualSync(cred.id);

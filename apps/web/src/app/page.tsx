@@ -306,9 +306,12 @@ export default function HomePage() {
       } else {
         const parts: string[] = [];
         if (json.d1?.newRecords > 0) parts.push(`${json.d1.newRecords} new`);
-        if (json.d1?.updatedRecords > 0) parts.push(`${json.d1.updatedRecords} updated`);
-        if (json.d1?.statusChanges > 0) parts.push(`${json.d1.statusChanges} status changes`);
-        if (json.historical?.statusChanges > 0) parts.push(`${json.historical.statusChanges} historical changes`);
+        if (json.d1?.updatedRecords > 0)
+          parts.push(`${json.d1.updatedRecords} updated`);
+        if (json.d1?.statusChanges > 0)
+          parts.push(`${json.d1.statusChanges} status changes`);
+        if (json.historical?.statusChanges > 0)
+          parts.push(`${json.historical.statusChanges} historical changes`);
         const summary = parts.length > 0 ? parts.join(", ") : "No changes";
         message.success(`Sync completed (${json.elapsed}): ${summary}`);
         // Refresh data after sync
