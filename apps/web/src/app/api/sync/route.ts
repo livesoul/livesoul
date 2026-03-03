@@ -17,7 +17,7 @@ import { sendLineNotification } from "@/lib/line";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     // Auth check — user must be logged in
     const supabase = await createClient();
@@ -29,20 +29,34 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get user's first credential
-    const { data: cred } = await supabase
+    // Accept optional credentialId from body
+    let credentialId: string | undefined;
+    try {
+      const body = await request.json();
+      credentialId = body.credentialId;
+    } catch {
+      // no body or invalid JSON — that’s fine, we’ll use first credential
+    }
+
+    // Get credential
+    let query = supabase
       .from("shopee_credentials")
       .select("id")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .single();
+      .eq("user_id", user.id);
+
+    if (credentialId) {
+      query = query.eq("id", credentialId);
+    } else {
+      query = query.order("created_at", { ascending: true }).limit(1);
+    }
+
+    const { data: cred } = await query.single();
 
     if (!cred) {
       return NextResponse.json(
         {
           error:
-            "No Shopee credentials found. Please set up credentials first.",
+            "ไม่พบ Shopee credentials กรุณาเพิ่ม credentials ที่หน้า Login",
         },
         { status: 400 },
       );

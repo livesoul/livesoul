@@ -3,7 +3,6 @@ import { ShopeeAffiliateClient } from "@livesoul/shopee-api";
 import { createClient } from "@/lib/supabase/server";
 // ⚠️ Always import from @/lib/tz — never use bare dayjs — see tz.ts for why
 import { bkkDayBoundary } from "@/lib/tz";
-import { HEADER_APP_ID, HEADER_SECRET } from "@/lib/credentials";
 
 export const dynamic = "force-dynamic";
 
@@ -21,50 +20,46 @@ export async function GET(request: Request) {
     searchParams.get("purchaseTimeEnd") ?? todayEnd,
   );
   const limit = Number(searchParams.get("limit") ?? 500);
+  const credentialId = searchParams.get("credentialId"); // optional: specific credential
 
   try {
-    // Strategy: try Supabase session first, then fall back to header-based creds
-    let appId: string | undefined;
-    let secret: string | undefined;
-
-    // 1. Try getting creds from Supabase session
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (user) {
-      const { data: cred } = await supabase
-        .from("shopee_credentials")
-        .select("app_id, secret")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .single();
-
-      if (cred) {
-        appId = cred.app_id;
-        secret = cred.secret;
-      }
+    if (!user) {
+      return NextResponse.json(
+        { error: "กรุณาเข้าสู่ระบบก่อน" },
+        { status: 401 },
+      );
     }
 
-    // 2. Fall back to header-based creds (backward compat)
-    if (!appId || !secret) {
-      appId = request.headers.get(HEADER_APP_ID)?.trim() || undefined;
-      secret = request.headers.get(HEADER_SECRET)?.trim() || undefined;
+    // Get credential: specific one or first available
+    let query = supabase
+      .from("shopee_credentials")
+      .select("id, app_id, secret, label")
+      .eq("user_id", user.id);
+
+    if (credentialId) {
+      query = query.eq("id", credentialId);
+    } else {
+      query = query.order("created_at", { ascending: true }).limit(1);
     }
 
-    if (!appId || !secret) {
+    const { data: cred } = await query.single();
+
+    if (!cred) {
       return NextResponse.json(
         {
           error:
-            "No credentials found. Please log in and set up Shopee credentials.",
+            "ไม่พบ Shopee credentials กรุณาเพิ่ม credentials ที่หน้า Login",
         },
         { status: 401 },
       );
     }
 
-    const client = new ShopeeAffiliateClient({ appId, secret });
+    const client = new ShopeeAffiliateClient({ appId: cred.app_id, secret: cred.secret });
     const allNodes = await client.getAllConversionReports({
       purchaseTimeStart,
       purchaseTimeEnd,
@@ -95,6 +90,8 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
+      credentialId: cred.id,
+      credentialLabel: cred.label,
       summary: {
         totalConversions: allNodes.length,
         totalOrders,

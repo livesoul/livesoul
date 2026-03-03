@@ -17,6 +17,9 @@ import {
   Image,
   Drawer,
   Menu,
+  Select,
+  Popconfirm,
+  List,
   message,
 } from "antd";
 import {
@@ -32,6 +35,9 @@ import {
   CloseCircleOutlined,
   LogoutOutlined,
   MenuOutlined,
+  PlusOutlined,
+  SettingOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -39,10 +45,10 @@ import type { ColumnsType } from "antd/es/table";
 // ⚠️ Always import from @/lib/tz — never use bare dayjs — see tz.ts for why
 import { bkk, dayjs } from "@/lib/tz";
 import {
-  loadCredentials,
+  loadCredentialsCloud,
+  deleteCredentialCloud,
   clearCredentials,
-  credentialHeaders,
-  type Credentials,
+  type StoredCredential,
 } from "@/lib/credentials";
 import { createClient } from "@/lib/supabase/client";
 import type {
@@ -259,12 +265,14 @@ export default function HomePage() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [creds, setCreds] = useState<Credentials | null>(null);
+  const [credentials, setCredentials] = useState<StoredCredential[]>([]);
+  const [activeCredId, setActiveCredId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ApiResponse | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // Initial range: yesterday only — fast load (use presets for wider ranges)
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
     bkk().subtract(1, "day").startOf("day"),
@@ -281,12 +289,18 @@ export default function HomePage() {
       } = await supabase.auth.getUser();
       if (!user) {
         router.replace("/login");
-      } else {
-        // Load credentials from localStorage cache for backward compat
-        const stored = loadCredentials();
-        if (stored) setCreds(stored);
-        setAuthReady(true);
+        return;
       }
+      // Load credentials from cloud
+      const creds = await loadCredentialsCloud();
+      if (creds.length === 0) {
+        // No credentials yet → send to login step 2
+        router.replace("/login");
+        return;
+      }
+      setCredentials(creds);
+      setActiveCredId(creds[0].id);
+      setAuthReady(true);
     })();
   }, [router, supabase]);
 
@@ -296,10 +310,32 @@ export default function HomePage() {
     router.replace("/login");
   }
 
+  async function handleDeleteCredential(id: string) {
+    const result = await deleteCredentialCloud(id);
+    if (result.ok) {
+      const updated = credentials.filter((c) => c.id !== id);
+      setCredentials(updated);
+      if (updated.length === 0) {
+        router.replace("/login");
+        return;
+      }
+      if (activeCredId === id) {
+        setActiveCredId(updated[0].id);
+      }
+      message.success("ลบ credential สำเร็จ");
+    } else {
+      message.error(result.error ?? "ลบไม่สำเร็จ");
+    }
+  }
+
   async function handleManualSync() {
     setSyncing(true);
     try {
-      const res = await fetch("/api/sync", { method: "POST" });
+      const res = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credentialId: activeCredId }),
+      });
       const json = await res.json();
       if (json.error) {
         message.error(json.error);
@@ -325,23 +361,15 @@ export default function HomePage() {
   }
 
   const fetchData = useCallback(async () => {
-    if (!authReady) return;
+    if (!authReady || !activeCredId) return;
     setLoading(true);
     setError(null);
     try {
       const start = bkk(dateRange[0]).startOf("day").unix();
       const end = bkk(dateRange[1]).endOf("day").unix();
 
-      const headers: HeadersInit = {};
-      // Include header-based creds if available (backward compat / offline cache)
-      if (creds) {
-        Object.assign(headers, credentialHeaders(creds));
-      }
-
-      const res = await fetch(
-        `/api/conversions?purchaseTimeStart=${start}&purchaseTimeEnd=${end}&limit=500`,
-        { headers },
-      );
+      const url = `/api/conversions?purchaseTimeStart=${start}&purchaseTimeEnd=${end}&limit=500&credentialId=${activeCredId}`;
+      const res = await fetch(url);
       const json: ApiResponse = await res.json();
       if (json.error) {
         setError(json.error);
@@ -353,7 +381,7 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [dateRange, creds, authReady]);
+  }, [dateRange, activeCredId, authReady]);
 
   useEffect(() => {
     fetchData();
@@ -424,6 +452,66 @@ export default function HomePage() {
         />
       </Drawer>
 
+      {/* Settings drawer — credential management */}
+      <Drawer
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        placement="right"
+        width={360}
+        title={
+          <Space>
+            <SettingOutlined />
+            <Text strong>จัดการ Accounts</Text>
+          </Space>
+        }
+      >
+        <List
+          dataSource={credentials}
+          renderItem={(item) => (
+            <List.Item
+              actions={[
+                <Popconfirm
+                  key="del"
+                  title="ลบ credential นี้?"
+                  description={`${item.label} (${item.app_id.slice(0, 6)}…)`}
+                  onConfirm={() => handleDeleteCredential(item.id)}
+                  okText="ลบ"
+                  cancelText="ยกเลิก"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button
+                    type="text"
+                    danger
+                    size="small"
+                    icon={<DeleteOutlined />}
+                  />
+                </Popconfirm>,
+              ]}
+            >
+              <List.Item.Meta
+                title={item.label}
+                description={`App ID: ${item.app_id.slice(0, 8)}… · ${bkk(item.created_at).format("DD MMM YYYY")}`}
+              />
+              {item.id === activeCredId && (
+                <Tag color="green">ใช้งานอยู่</Tag>
+              )}
+            </List.Item>
+          )}
+        />
+        <Button
+          type="dashed"
+          block
+          icon={<PlusOutlined />}
+          onClick={() => {
+            setSettingsOpen(false);
+            router.push("/login?add=1");
+          }}
+          style={{ marginTop: 16 }}
+        >
+          เพิ่ม Account ใหม่
+        </Button>
+      </Drawer>
+
       <Layout>
         {/* Responsive header */}
         <Header
@@ -465,6 +553,13 @@ export default function HomePage() {
                   loading={loading}
                 />
                 <Button
+                  icon={<SettingOutlined />}
+                  type="text"
+                  size="small"
+                  onClick={() => setSettingsOpen(true)}
+                  title="จัดการ Accounts"
+                />
+                <Button
                   icon={<LogoutOutlined />}
                   type="text"
                   size="small"
@@ -472,7 +567,36 @@ export default function HomePage() {
                   onClick={handleLogout}
                 />
               </div>
-              {/* Row 2: full-width date picker */}
+              {/* Row 2: credential selector */}
+              {credentials.length > 0 && (
+                <Select
+                  value={activeCredId}
+                  onChange={(val) => {
+                    if (val === "__add__") {
+                      router.push("/login?add=1");
+                    } else {
+                      setActiveCredId(val);
+                    }
+                  }}
+                  style={{ width: "100%" }}
+                  size="small"
+                  options={[
+                    ...credentials.map((c) => ({
+                      value: c.id,
+                      label: `${c.label} (${c.app_id.slice(0, 6)}…)`,
+                    })),
+                    {
+                      value: "__add__",
+                      label: (
+                        <span>
+                          <PlusOutlined /> เพิ่ม Account
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
+              )}
+              {/* Row 3: full-width date picker */}
               <RangePicker
                 value={dateRange}
                 onChange={(dates) => {
@@ -501,6 +625,33 @@ export default function HomePage() {
                 Conversion Report
               </Title>
               <Space>
+                {credentials.length > 0 && (
+                  <Select
+                    value={activeCredId}
+                    onChange={(val) => {
+                      if (val === "__add__") {
+                        router.push("/login?add=1");
+                      } else {
+                        setActiveCredId(val);
+                      }
+                    }}
+                    style={{ minWidth: 180 }}
+                    options={[
+                      ...credentials.map((c) => ({
+                        value: c.id,
+                        label: `${c.label} (${c.app_id.slice(0, 6)}…)`,
+                      })),
+                      {
+                        value: "__add__",
+                        label: (
+                          <span>
+                            <PlusOutlined /> เพิ่ม Account
+                          </span>
+                        ),
+                      },
+                    ]}
+                  />
+                )}
                 <RangePicker
                   value={dateRange}
                   onChange={(dates) => {
@@ -525,6 +676,12 @@ export default function HomePage() {
                   loading={loading}
                 >
                   Refresh
+                </Button>
+                <Button
+                  icon={<SettingOutlined />}
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  Accounts
                 </Button>
                 <Button icon={<LogoutOutlined />} onClick={handleLogout} danger>
                   ออกจากระบบ

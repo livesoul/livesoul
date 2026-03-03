@@ -17,6 +17,7 @@ import {
   ShoppingCartOutlined,
   CheckCircleFilled,
   GoogleOutlined,
+  TagOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -24,6 +25,10 @@ import { createClient } from "@/lib/supabase/client";
 import { saveCredentialsCloud, type Credentials } from "@/lib/credentials";
 
 const { Title, Paragraph, Text, Link } = Typography;
+
+interface CredentialForm extends Credentials {
+  label: string;
+}
 
 /** Wrapper with Suspense boundary (required for useSearchParams in Next.js 15) */
 export default function LoginPage() {
@@ -49,16 +54,22 @@ function LoginContent() {
 
   // Shopee credentials state (step 2)
   const [showShopeeStep, setShowShopeeStep] = useState(false);
-  const [form] = Form.useForm<Credentials>();
+  const [form] = Form.useForm<CredentialForm>();
   const [testing, setTesting] = useState(false);
   const [credError, setCredError] = useState<string | null>(null);
   const [credSuccess, setCredSuccess] = useState(false);
+  const isAddingAccount = searchParams.get("add") === "1";
 
   // Check if user is already authenticated → show Shopee step or redirect
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        if (isAddingAccount) {
+          // User wants to add another account — go straight to Shopee step
+          setShowShopeeStep(true);
+          return;
+        }
         try {
           const res = await fetch("/api/credentials");
           const json = await res.json();
@@ -72,7 +83,7 @@ function LoginContent() {
         }
       }
     })();
-  }, [supabase, router]);
+  }, [supabase, router, isAddingAccount]);
 
   // ─── Auth handlers ───────────────────────────────────────────────
 
@@ -93,12 +104,15 @@ function LoginContent() {
 
   // ─── Shopee Credentials handler (step 2) ────────────────────────
 
-  async function handleShopeeSubmit(values: Credentials) {
+  async function handleShopeeSubmit(values: CredentialForm) {
     setTesting(true);
     setCredError(null);
     setCredSuccess(false);
 
-    const result = await saveCredentialsCloud(values);
+    const result = await saveCredentialsCloud(
+      { appId: values.appId, secret: values.secret },
+      values.label || "default",
+    );
 
     if (result.ok) {
       setCredSuccess(true);
@@ -133,7 +147,9 @@ function LoginContent() {
             </Title>
             <Text type="secondary">
               {showShopeeStep
-                ? "เชื่อมต่อ Shopee Affiliate API"
+                ? isAddingAccount
+                  ? "เพิ่ม Shopee Account ใหม่"
+                  : "เชื่อมต่อ Shopee Affiliate API"
                 : "เข้าสู่ระบบเพื่อใช้งาน"}
             </Text>
           </Space>
@@ -185,7 +201,26 @@ function LoginContent() {
               layout="vertical"
               onFinish={handleShopeeSubmit}
               requiredMark={false}
+              initialValues={{ label: "" }}
             >
+              <Form.Item
+                label={<Text strong>ชื่อ Account</Text>}
+                name="label"
+                rules={[
+                  {
+                    required: true,
+                    message: "กรุณาตั้งชื่อ เช่น หลัก, ร้าน A",
+                  },
+                ]}
+              >
+                <Input
+                  prefix={<TagOutlined style={{ color: "#bbb" }} />}
+                  placeholder="เช่น หลัก, ร้าน A, ร้านสอง"
+                  size="large"
+                  autoComplete="off"
+                />
+              </Form.Item>
+
               <Form.Item
                 label={<Text strong>App ID</Text>}
                 name="appId"
