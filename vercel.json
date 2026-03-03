@@ -3,5 +3,15 @@
   "outputDirectory": "apps/web/.next",
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": "nextjs",
-  "rootDirectory": "."
+  "rootDirectory": ".",
+  "crons": [
+    {
+      "path": "/api/cron/sync",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/sync",
+      "schedule": "0 8 * * *"
+    }
+  ]
 }

@@ -2,33 +2,33 @@
 
 ## สรุปคำถามที่ต้องตอบก่อนออกแบบ
 
-| คำถาม | คำตอบ | เหตุผล |
-|-------|-------|--------|
+| คำถาม                            | คำตอบ        | เหตุผล                                                                                                                                |
+| -------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | **ต้องเก็บประวัติสถานะหรือไม่?** | **ต้องเก็บ** | ถ้าไม่เก็บจะไม่รู้ว่า order_status เปลี่ยนจาก PENDING → COMPLETED หรือ CANCELLED เมื่อไร ไม่สามารถคำนวณ conversion rate ที่แท้จริงได้ |
-| **ต้องรู้ rate ยกเลิก/สำเร็จ?** | **ต้องรู้** | ข้อมูลสำคัญมาก — ถ้า cancellation rate สูง อาจต้องเปลี่ยนกลยุทธ์สินค้าที่โปรโมท |
-| **ต้องรู้สินค้าขายดี?** | **ต้องรู้** | ช่วยตัดสินใจว่าควรโปรโมทสินค้า/ร้าน/หมวดไหน ใช้ aggregate query จาก DB ได้เลย |
+| **ต้องรู้ rate ยกเลิก/สำเร็จ?**  | **ต้องรู้**  | ข้อมูลสำคัญมาก — ถ้า cancellation rate สูง อาจต้องเปลี่ยนกลยุทธ์สินค้าที่โปรโมท                                                       |
+| **ต้องรู้สินค้าขายดี?**          | **ต้องรู้**  | ช่วยตัดสินใจว่าควรโปรโมทสินค้า/ร้าน/หมวดไหน ใช้ aggregate query จาก DB ได้เลย                                                         |
 
 ---
 
 ## ข้อจำกัดที่ต้องรู้ (Free Tier)
 
-| ทรัพยากร | Limit | ผล |
-|----------|-------|-----|
-| **Supabase DB** | 500 MB | ~500K–1M rows ของ conversions (ถ้า raw_data เก็บแบบ compact) |
-| **Supabase API** | 500K requests/mo | Cron วันละ 6 รอบ × 30 วัน = 180 req — เหลืออีกมาก |
-| **Vercel Cron** | วันละ **1 cron job** (2 invocations) บน free tier | ต้องออกแบบให้ 1 cron ทำได้ทุกอย่าง |
-| **Shopee API** | 2,000 calls/hr | ไม่เป็นปัญหา — sync D-1 ใช้แค่ 1-5 calls |
-| **Line Notify** | ฟรีไม่จำกัด (ปิดให้บริการ มี.ค. 2568!) | ❌ **ใช้ไม่ได้แล้ว** — ต้องใช้ทางเลือกอื่น |
+| ทรัพยากร         | Limit                                             | ผล                                                           |
+| ---------------- | ------------------------------------------------- | ------------------------------------------------------------ |
+| **Supabase DB**  | 500 MB                                            | ~500K–1M rows ของ conversions (ถ้า raw_data เก็บแบบ compact) |
+| **Supabase API** | 500K requests/mo                                  | Cron วันละ 6 รอบ × 30 วัน = 180 req — เหลืออีกมาก            |
+| **Vercel Cron**  | วันละ **1 cron job** (2 invocations) บน free tier | ต้องออกแบบให้ 1 cron ทำได้ทุกอย่าง                           |
+| **Shopee API**   | 2,000 calls/hr                                    | ไม่เป็นปัญหา — sync D-1 ใช้แค่ 1-5 calls                     |
+| **Line Notify**  | ฟรีไม่จำกัด (ปิดให้บริการ มี.ค. 2568!)            | ❌ **ใช้ไม่ได้แล้ว** — ต้องใช้ทางเลือกอื่น                   |
 
 ### ทางเลือกแจ้งเตือนแทน Line Notify
 
-| ตัวเลือก | ข้อดี | ข้อเสีย | Free Tier |
-|----------|-------|---------|-----------|
-| **Line Messaging API (OA)** | ส่งตรงถึง Line | ต้องสร้าง Official Account, 200 msg/mo ฟรี | 200 push msg/mo |
-| **LINE Bot SDK** | Rich message, Flex Message | Setup ซับซ้อนกว่า Notify | 200 push msg/mo |
-| **Discord Webhook** | ง่ายมาก, ฟรีไม่จำกัด, ไม่ต้อง auth | ต้องใช้ Discord | ✅ ฟรีไม่จำกัด |
-| **Email (Supabase Edge Function)** | มีอยู่แล้วใน Supabase | จำกัด 3 emails/hr (free) | 3/hr |
-| **Telegram Bot** | ง่าย, ฟรีไม่จำกัด | ต้องใช้ Telegram | ✅ ฟรีไม่จำกัด |
+| ตัวเลือก                           | ข้อดี                              | ข้อเสีย                                    | Free Tier       |
+| ---------------------------------- | ---------------------------------- | ------------------------------------------ | --------------- |
+| **Line Messaging API (OA)**        | ส่งตรงถึง Line                     | ต้องสร้าง Official Account, 200 msg/mo ฟรี | 200 push msg/mo |
+| **LINE Bot SDK**                   | Rich message, Flex Message         | Setup ซับซ้อนกว่า Notify                   | 200 push msg/mo |
+| **Discord Webhook**                | ง่ายมาก, ฟรีไม่จำกัด, ไม่ต้อง auth | ต้องใช้ Discord                            | ✅ ฟรีไม่จำกัด  |
+| **Email (Supabase Edge Function)** | มีอยู่แล้วใน Supabase              | จำกัด 3 emails/hr (free)                   | 3/hr            |
+| **Telegram Bot**                   | ง่าย, ฟรีไม่จำกัด                  | ต้องใช้ Telegram                           | ✅ ฟรีไม่จำกัด  |
 
 **แนะนำ: Discord Webhook** เป็นตัวหลัก (ฟรี ง่าย ไม่จำกัด) + **Line Messaging API** เป็นตัวเสริมถ้าอยากได้ Line
 
@@ -217,13 +217,13 @@ alter table public.sync_logs
 
 ## ประมาณการใช้ Storage (Free Tier 500 MB)
 
-| ข้อมูล | ต่อ row | ต่อเดือน (สมมติ 100 orders/วัน) | ต่อปี |
-|--------|---------|-------------------------------|-------|
-| `conversions` | ~500 bytes (ไม่เก็บ raw_data) | ~1.5 MB | ~18 MB |
-| `conversions` + raw_data | ~2 KB | ~6 MB | ~72 MB |
-| `status_history` | ~100 bytes | ~0.3 MB (3 changes/order avg) | ~3.6 MB |
-| `daily_summaries` | ~200 bytes | ~6 KB | ~72 KB |
-| `sync_logs` | ~200 bytes | ~12 KB (2/day) | ~144 KB |
+| ข้อมูล                   | ต่อ row                       | ต่อเดือน (สมมติ 100 orders/วัน) | ต่อปี   |
+| ------------------------ | ----------------------------- | ------------------------------- | ------- |
+| `conversions`            | ~500 bytes (ไม่เก็บ raw_data) | ~1.5 MB                         | ~18 MB  |
+| `conversions` + raw_data | ~2 KB                         | ~6 MB                           | ~72 MB  |
+| `status_history`         | ~100 bytes                    | ~0.3 MB (3 changes/order avg)   | ~3.6 MB |
+| `daily_summaries`        | ~200 bytes                    | ~6 KB                           | ~72 KB  |
+| `sync_logs`              | ~200 bytes                    | ~12 KB (2/day)                  | ~144 KB |
 
 ### คำแนะนำ
 
@@ -255,12 +255,12 @@ Vercel free tier ได้ **1 cron job** ที่ invocation ได้ **2 ค
 
 ### ทำไมถึงเลือกรอบเดียว 06:00 ไม่ใช่ทุกชั่วโมง?
 
-| ตัวเลือก | ข้อดี | ข้อเสีย |
-|----------|-------|---------|
-| ทุก 1 ชม. | เห็นข้อมูลเร็ว | ❌ เกิน free tier (ได้แค่ 2 invocations/day) |
-| ทุก 30 นาที | — | ❌ เกินมาก |
-| **วันละ 1 ครั้ง 06:00** | ✅ พอดี free tier | ข้อมูลอาจยังไม่พร้อม (retry manual ได้) |
-| วันละ 2 ครั้ง (06:00, 12:00) | Safety net | ✅ ใช้ 2 invocations พอดี |
+| ตัวเลือก                     | ข้อดี             | ข้อเสีย                                      |
+| ---------------------------- | ----------------- | -------------------------------------------- |
+| ทุก 1 ชม.                    | เห็นข้อมูลเร็ว    | ❌ เกิน free tier (ได้แค่ 2 invocations/day) |
+| ทุก 30 นาที                  | —                 | ❌ เกินมาก                                   |
+| **วันละ 1 ครั้ง 06:00**      | ✅ พอดี free tier | ข้อมูลอาจยังไม่พร้อม (retry manual ได้)      |
+| วันละ 2 ครั้ง (06:00, 12:00) | Safety net        | ✅ ใช้ 2 invocations พอดี                    |
 
 **แนะนำ: วันละ 2 รอบ** — 06:00 (primary) + 12:00 (fallback ถ้ารอบแรกยังไม่มีข้อมูล)
 
@@ -417,13 +417,13 @@ group by sh.new_status;
 
 ## Data Retention Policy (ประหยัด Storage)
 
-| ข้อมูล | เก็บถาวร | เก็บชั่วคราว | Cleanup |
-|--------|---------|-------------|---------|
-| `conversions` (core fields) | ✅ ตลอดไป | — | — |
-| `conversions.raw_data` | — | 90 วัน | Cron ล้างรายเดือน |
-| `status_history` | ✅ ตลอดไป | — | — |
-| `daily_summaries` | ✅ ตลอดไป | — | — |
-| `sync_logs` | — | 30 วัน | Cron ล้างรายเดือน |
+| ข้อมูล                      | เก็บถาวร  | เก็บชั่วคราว | Cleanup           |
+| --------------------------- | --------- | ------------ | ----------------- |
+| `conversions` (core fields) | ✅ ตลอดไป | —            | —                 |
+| `conversions.raw_data`      | —         | 90 วัน       | Cron ล้างรายเดือน |
+| `status_history`            | ✅ ตลอดไป | —            | —                 |
+| `daily_summaries`           | ✅ ตลอดไป | —            | —                 |
+| `sync_logs`                 | —         | 30 วัน       | Cron ล้างรายเดือน |
 
 ```sql
 -- Cleanup query (รันเดือนละครั้ง)
@@ -442,17 +442,17 @@ delete from public.sync_logs
 
 ## Implementation Priority
 
-| ลำดับ | Task | Effort | Impact |
-|-------|------|--------|--------|
-| 1 | `status_history` table + migration | เล็ก | สูง — เก็บประวัติทั้งหมด |
-| 2 | `/api/cron/sync` endpoint | กลาง | สูง — auto-fetch ทุกวัน |
-| 3 | Discord Webhook notification | เล็ก | สูง — รู้ทันทีเมื่อมี conversion |
-| 4 | `daily_summaries` table | เล็ก | กลาง — dashboard โหลดเร็ว |
-| 5 | Analytics queries + dashboard UI | กลาง | สูง — top items/shops/categories |
-| 6 | Vercel Cron config | เล็ก | สูง — automate ทุกอย่าง |
-| 7 | Line Messaging API (เสริม) | กลาง | กลาง — ส่งตรงถึง Line |
-| 8 | Data retention cleanup | เล็ก | ต่ำ — ไว้ทำทีหลังก็ได้ |
+| ลำดับ | Task                               | Effort | Impact                           |
+| ----- | ---------------------------------- | ------ | -------------------------------- |
+| 1     | `status_history` table + migration | เล็ก   | สูง — เก็บประวัติทั้งหมด         |
+| 2     | `/api/cron/sync` endpoint          | กลาง   | สูง — auto-fetch ทุกวัน          |
+| 3     | Discord Webhook notification       | เล็ก   | สูง — รู้ทันทีเมื่อมี conversion |
+| 4     | `daily_summaries` table            | เล็ก   | กลาง — dashboard โหลดเร็ว        |
+| 5     | Analytics queries + dashboard UI   | กลาง   | สูง — top items/shops/categories |
+| 6     | Vercel Cron config                 | เล็ก   | สูง — automate ทุกอย่าง          |
+| 7     | Line Messaging API (เสริม)         | กลาง   | กลาง — ส่งตรงถึง Line            |
+| 8     | Data retention cleanup             | เล็ก   | ต่ำ — ไว้ทำทีหลังก็ได้           |
 
 ---
 
-*สร้างเมื่อ: มีนาคม 2569*
+_สร้างเมื่อ: มีนาคม 2569_
