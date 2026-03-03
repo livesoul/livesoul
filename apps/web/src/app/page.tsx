@@ -262,9 +262,9 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ApiResponse | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  // Initial range: last 7 days in Asia/Bangkok timezone, ending yesterday (today has no data yet)
+  // Initial range: yesterday only — fast load (use presets for wider ranges)
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
-    bkk().subtract(7, "day").startOf("day"),
+    bkk().subtract(1, "day").startOf("day"),
     bkk().subtract(1, "day").endOf("day"),
   ]);
 
@@ -273,7 +273,9 @@ export default function HomePage() {
   // Auth guard — redirect to /login if not authenticated
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         router.replace("/login");
       } else {
