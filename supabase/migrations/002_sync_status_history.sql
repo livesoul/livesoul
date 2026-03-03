@@ -88,7 +88,8 @@ alter table public.conversions
   add column if not exists complete_time timestamptz,
   add column if not exists click_time    timestamptz,
   add column if not exists refund_amount numeric(12, 2) default 0,
-  add column if not exists fraud_status  text;
+  add column if not exists fraud_status  text,
+  add column if not exists content_hash  text;  -- MD5 hash of mutable fields, skip write if unchanged
 
 -- เพิ่ม update policy ที่ยังไม่มี (สำหรับ status update จาก cron)
 create policy "Users can update own conversions"

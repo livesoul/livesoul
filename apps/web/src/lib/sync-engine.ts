@@ -15,6 +15,7 @@
 import { ShopeeAffiliateClient } from "@livesoul/shopee-api";
 import type { ConversionReport } from "@livesoul/shopee-api";
 import { createClient as createSupabaseAdmin, type SupabaseClient } from "@supabase/supabase-js";
+import { createHash } from "crypto";
 import { bkk, bkkDayBoundary } from "./tz";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,6 +37,7 @@ interface ConversionRow {
   order_status: string;
   item_id: number;
   conversion_id: number;
+  content_hash: string | null;
 }
 
 export interface SyncResult {
@@ -123,6 +125,26 @@ export async function runFullSync(): Promise<SyncResult[]> {
   }
 
   return results;
+}
+
+/**
+ * Run sync for a single credential (manual trigger from dashboard).
+ * Uses user's own Supabase session, not admin.
+ */
+export async function runManualSync(credentialId: string): Promise<SyncResult> {
+  const supabase = getAdminClient();
+
+  const { data: cred, error } = await supabase
+    .from("shopee_credentials")
+    .select("id, user_id, app_id, secret, label")
+    .eq("id", credentialId)
+    .single();
+
+  if (error || !cred) {
+    throw new Error(`Credential not found: ${error?.message || "unknown"}`);
+  }
+
+  return await syncForCredential(supabase, cred as CredentialRecord);
 }
 
 // ─── Per-Credential Sync ─────────────────────────────────────────────────────
@@ -217,7 +239,7 @@ async function upsertConversions(
   const conversionIds = [...new Set(rows.map((r) => r.conversion_id))];
   const { data: existing } = await supabase
     .from("conversions")
-    .select("id, conversion_id, order_id, item_id, order_status")
+    .select("id, conversion_id, order_id, item_id, order_status, content_hash")
     .eq("credential_id", cred.id)
     .in("conversion_id", conversionIds);
 
@@ -234,11 +256,14 @@ async function upsertConversions(
     const key = `${row.conversion_id}:${row.order_id}:${row.item_id}`;
     const existingRow = existingMap.get(key);
 
+    // Compute content hash from all mutable fields
+    const newHash = computeContentHash(row);
+
     if (!existingRow) {
       // New record — insert
       const { data: inserted } = await supabase
         .from("conversions")
-        .upsert(row, { onConflict: "credential_id,conversion_id,order_id,item_id" })
+        .upsert({ ...row, content_hash: newHash }, { onConflict: "credential_id,conversion_id,order_id,item_id" })
         .select("id")
         .single();
 
@@ -252,8 +277,10 @@ async function upsertConversions(
           new_status: row.order_status,
         });
       }
-    } else if (existingRow.order_status !== row.order_status) {
-      // Status changed — update + record history
+    } else if (existingRow.content_hash !== newHash) {
+      // Content changed (hash differs) — update record
+      const statusChanged = existingRow.order_status !== row.order_status;
+
       await supabase
         .from("conversions")
         .update({
@@ -261,20 +288,26 @@ async function upsertConversions(
           complete_time: row.complete_time,
           refund_amount: row.refund_amount,
           fraud_status: row.fraud_status,
+          item_commission: row.item_commission,
+          item_price: row.item_price,
+          content_hash: newHash,
           synced_at: new Date().toISOString(),
         })
         .eq("id", existingRow.id);
 
-      await supabase.from("status_history").insert({
-        conversion_ref: existingRow.id,
-        old_status: existingRow.order_status,
-        new_status: row.order_status,
-      });
+      // Only record status_history if the order status actually changed
+      if (statusChanged) {
+        await supabase.from("status_history").insert({
+          conversion_ref: existingRow.id,
+          old_status: existingRow.order_status,
+          new_status: row.order_status,
+        });
+        statusChanges++;
+      }
 
-      statusChanges++;
       updatedRecords++;
     }
-    // else: same status, no change needed
+    // else: hash identical → skip entirely (no DB write)
   }
 
   return { newRecords, updatedRecords, statusChanges };
@@ -331,6 +364,29 @@ function flattenConversions(
   }
 
   return rows;
+}
+
+// ─── Content Hash (change detection) ─────────────────────────────────────────
+
+/**
+ * Compute MD5 hash of all mutable fields in a conversion row.
+ * If the hash matches the stored value, we skip the DB write entirely.
+ * This prevents unnecessary writes when sync is triggered repeatedly.
+ */
+function computeContentHash(row: Record<string, unknown>): string {
+  const payload = [
+    row.order_status,
+    row.item_commission,
+    row.item_price,
+    row.complete_time,
+    row.refund_amount,
+    row.fraud_status,
+    row.qty,
+  ]
+    .map((v) => String(v ?? ""))
+    .join("|");
+
+  return createHash("md5").update(payload).digest("hex");
 }
 
 // ─── Historical Pending Status Update ────────────────────────────────────────

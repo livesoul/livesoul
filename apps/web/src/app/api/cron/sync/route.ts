@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 import { runFullSync } from "@/lib/sync-engine";
 import { sendDiscordNotification } from "@/lib/discord";
+import { sendLineNotification } from "@/lib/line";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // seconds — Vercel free tier max
@@ -42,9 +43,12 @@ export async function GET(request: Request) {
       `[cron/sync] Completed in ${elapsed}s — ${results.length} credential(s) synced`,
     );
 
-    // Send Discord notifications (non-blocking)
+    // Send notifications (Discord + LINE, both optional)
     if (results.length > 0) {
-      await sendDiscordNotification(results);
+      await Promise.allSettled([
+        sendDiscordNotification(results),
+        sendLineNotification(results),
+      ]);
     }
 
     return NextResponse.json({

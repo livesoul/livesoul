@@ -17,6 +17,7 @@ import {
   Image,
   Drawer,
   Menu,
+  message,
 } from "antd";
 import {
   ShopOutlined,
@@ -24,6 +25,7 @@ import {
   AppstoreOutlined,
   ShoppingCartOutlined,
   ReloadOutlined,
+  SyncOutlined,
   DollarOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -259,6 +261,7 @@ export default function HomePage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [creds, setCreds] = useState<Credentials | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ApiResponse | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -291,6 +294,31 @@ export default function HomePage() {
     clearCredentials();
     await supabase.auth.signOut();
     router.replace("/login");
+  }
+
+  async function handleManualSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/sync", { method: "POST" });
+      const json = await res.json();
+      if (json.error) {
+        message.error(json.error);
+      } else {
+        const parts: string[] = [];
+        if (json.d1?.newRecords > 0) parts.push(`${json.d1.newRecords} new`);
+        if (json.d1?.updatedRecords > 0) parts.push(`${json.d1.updatedRecords} updated`);
+        if (json.d1?.statusChanges > 0) parts.push(`${json.d1.statusChanges} status changes`);
+        if (json.historical?.statusChanges > 0) parts.push(`${json.historical.statusChanges} historical changes`);
+        const summary = parts.length > 0 ? parts.join(", ") : "No changes";
+        message.success(`Sync completed (${json.elapsed}): ${summary}`);
+        // Refresh data after sync
+        fetchData();
+      }
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
   }
 
   const fetchData = useCallback(async () => {
@@ -419,6 +447,14 @@ export default function HomePage() {
                   Conversion Report
                 </Title>
                 <Button
+                  icon={<SyncOutlined spin={syncing} />}
+                  type="text"
+                  size="small"
+                  onClick={handleManualSync}
+                  loading={syncing}
+                  title="Sync to DB"
+                />
+                <Button
                   icon={<ReloadOutlined />}
                   type="text"
                   size="small"
@@ -473,6 +509,13 @@ export default function HomePage() {
                   disabledDate={(current) => current >= bkk().startOf("day")}
                   presets={rangePresets}
                 />
+                <Button
+                  icon={<SyncOutlined />}
+                  onClick={handleManualSync}
+                  loading={syncing}
+                >
+                  Sync DB
+                </Button>
                 <Button
                   icon={<ReloadOutlined />}
                   onClick={fetchData}
